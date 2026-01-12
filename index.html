@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DETRAN-MA - Study Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #94a3b8;
+            border-radius: 10px;
+        }
+        
+        .transition-all {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { 
+            -webkit-appearance: none; 
+            margin: 0; 
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        /* Drag and Drop Styles */
+        .dragging {
+            opacity: 0.5;
+            border: 2px dashed #1d4ed8;
+        }
+        
+        .drag-handle {
+            cursor: grab;
+            touch-action: none;
+        }
+        .drag-handle:active {
+            cursor: grabbing;
+        }
+    </style>
+</head>
+<body class="pb-20">
+
+    <div id="app">
+        <!-- Header -->
+        <header class="bg-blue-950 text-white shadow-xl sticky top-0 z-10 border-b border-blue-900">
+            <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <div class="bg-blue-800/50 p-2 rounded-xl backdrop-blur-md border border-blue-700/50">
+                        <i data-lucide="car" style="width: 20px; height: 20px;"></i>
+                    </div>
+                    <h1 class="text-base font-extrabold tracking-tight text-blue-50">DETRAN-MA</h1>
+                </div>
+                
+                <!-- Actions (Moved to right side) -->
+                <div class="flex gap-2">
+                    <button onclick="exportData()" title="Exportar Backup" class="p-1.5 hover:bg-blue-800/50 rounded-lg transition-colors flex items-center gap-1.5 text-blue-100">
+                        <i data-lucide="download" style="width: 14px; height: 14px;"></i>
+                        <span class="text-[10px] font-bold uppercase hidden sm:inline">Exportar</span>
+                    </button>
+                    <button onclick="document.getElementById('import-input').click()" title="Importar Backup" class="p-1.5 hover:bg-blue-800/50 rounded-lg transition-colors flex items-center gap-1.5 text-blue-100">
+                        <i data-lucide="upload" style="width: 14px; height: 14px;"></i>
+                        <span class="text-[10px] font-bold uppercase hidden sm:inline">Importar</span>
+                    </button>
+                    <input type="file" id="import-input" class="hidden" accept=".json" onchange="importData(event)">
+                    
+                    <button onclick="openSettingsModal()" title="Configurações" class="p-1.5 hover:bg-blue-800/50 rounded-lg transition-colors flex items-center gap-1.5 text-blue-100 group">
+                        <i data-lucide="settings" class="group-hover:rotate-45 transition-transform duration-500" style="width: 14px; height: 14px;"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <main class="max-w-7xl mx-auto px-4 mt-6">
+            <!-- Cards de Progresso -->
+            <!-- MUDANÇA: mb-8 para mb-4 para diminuir o espaço -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <!-- Card Gerais -->
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4 hover:shadow-md transition-shadow">
+                    <div class="p-2.5 bg-blue-50 text-blue-700 rounded-xl">
+                        <i data-lucide="bar-chart-3" style="width: 22px; height: 22px;"></i>
+                    </div>
+                    <div class="flex-1">
+                        <div class="flex justify-between items-end mb-1.5">
+                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Básicos</span>
+                            <span id="progress-gerais-text" class="text-lg font-black text-blue-700">0%</span>
+                        </div>
+                        <div class="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                            <div id="progress-gerais-bar" class="h-full bg-blue-600 transition-all duration-1000 shadow-[0_0_10px_rgba(37,99,235,0.3)]" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Card Específicos -->
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4 hover:shadow-md transition-shadow">
+                    <div class="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl">
+                        <i data-lucide="trophy" style="width: 22px; height: 22px;"></i>
+                    </div>
+                    <div class="flex-1">
+                        <div class="flex justify-between items-end mb-1.5">
+                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Específicos</span>
+                            <span id="progress-especificos-text" class="text-lg font-black text-emerald-600">0%</span>
+                        </div>
+                        <div class="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                            <div id="progress-especificos-bar" class="h-full bg-emerald-500 transition-all duration-1000 shadow-[0_0_10px_rgba(16,185,129,0.3)]" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tabs de Navegação -->
+            <!-- MUDANÇA: mb-6 para mb-3 para diminuir o espaço inferior -->
+            <div class="flex p-1.5 bg-slate-200/80 backdrop-blur rounded-xl mb-3 max-w-md mx-auto border border-slate-200">
+                <button onclick="switchTab('gerais')" id="tab-gerais" class="flex-1 py-2 px-3 rounded-lg text-[11px] font-bold transition-all duration-200 bg-white text-blue-700 shadow-sm uppercase tracking-tight">
+                    Conhecimentos Básicos
+                </button>
+                <button onclick="switchTab('especificos')" id="tab-especificos" class="flex-1 py-2 px-3 rounded-lg text-[11px] font-bold transition-all duration-200 text-slate-500 hover:text-slate-800 uppercase tracking-tight">
+                    Conhecimentos Específicos
+                </button>
+            </div>
+
+            <!-- Lista de Matérias -->
+            <div class="space-y-4">
+                <div class="flex justify-between items-center mb-2">
+                    <h2 class="text-sm font-extrabold text-slate-700 flex items-center gap-2">
+                        <div class="bg-slate-100 p-1 rounded">
+                            <i data-lucide="list-checks" class="text-slate-600" style="width: 14px; height: 14px;"></i>
+                        </div>
+                        MATÉRIAS
+                    </h2>
+                    <button onclick="openModal('materia')" class="flex items-center gap-1.5 bg-blue-700 text-white px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider hover:bg-blue-800 transition-colors shadow-sm shadow-blue-700/20">
+                        <i data-lucide="plus" style="width: 12px; height: 12px;"></i> Adicionar
+                    </button>
+                </div>
+
+                <div id="materias-container" class="space-y-3 pb-10">
+                    <!-- Conteúdo dinâmico aqui -->
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal Form (Create/Edit) -->
+    <div id="modal-container" class="fixed inset-0 bg-slate-900/40 hidden items-center justify-center p-4 z-50 backdrop-blur-sm transition-all">
+        <div class="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl border border-slate-100 transform transition-all scale-100">
+            <h3 id="modal-title" class="text-lg font-bold mb-4 text-slate-800">Nova Matéria</h3>
+            <textarea id="modal-input" class="w-full border border-slate-200 rounded-xl px-4 py-3 mb-6 focus:ring-2 focus:ring-blue-600 focus:border-transparent outline-none h-24 text-sm bg-slate-50 focus:bg-white transition-colors" placeholder="Digite o nome..."></textarea>
+            <div class="flex gap-3">
+                <button onclick="closeModal()" class="flex-1 px-4 py-2.5 text-xs text-slate-500 font-bold hover:bg-slate-100 rounded-xl transition-colors">CANCELAR</button>
+                <button onclick="handleModalConfirm()" class="flex-1 px-4 py-2.5 text-xs bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-700/30 hover:bg-blue-800 transition-all transform active:scale-95">CONFIRMAR</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Configurações -->
+    <div id="settings-modal" class="fixed inset-0 bg-slate-900/40 hidden items-center justify-center p-4 z-50 backdrop-blur-sm transition-all">
+        <div class="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl border border-slate-100 transform transition-all scale-100">
+            <div class="flex items-center gap-3 mb-6 border-b border-slate-100 pb-4">
+                <div class="p-2 bg-blue-50 text-blue-600 rounded-lg">
+                    <i data-lucide="settings" style="width: 20px; height: 20px;"></i>
+                </div>
+                <h3 class="text-lg font-bold text-slate-800">Configurações</h3>
+            </div>
+            
+            <div class="space-y-5">
+                <!-- Meta de Questões -->
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Meta de Questões (por assunto)</label>
+                    <div class="relative">
+                        <input type="number" id="config-goal" class="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-blue-600 focus:border-transparent outline-none bg-slate-50 focus:bg-white transition-colors pl-10">
+                        <div class="absolute left-3.5 top-2.5 text-slate-400">
+                            <i data-lucide="target" style="width: 16px; height: 16px;"></i>
+                        </div>
+                    </div>
+                    <p class="text-[10px] text-slate-400 mt-1.5 ml-1">Quantidade para considerar a meta de questões concluída.</p>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <!-- Limite Verde -->
+                    <div>
+                        <label class="block text-[10px] font-bold text-emerald-600 uppercase tracking-widest mb-2">Mínimo Verde (%)</label>
+                        <div class="relative">
+                            <input type="number" id="config-green" class="w-full border border-emerald-100 rounded-xl px-4 py-2.5 text-sm font-bold text-emerald-700 focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none bg-emerald-50 focus:bg-white transition-colors pl-9">
+                            <span class="absolute right-3 top-2.5 text-emerald-600 text-xs font-bold">%</span>
+                            <div class="absolute left-3 top-2.5 text-emerald-400">
+                                <i data-lucide="check-circle-2" style="width: 16px; height: 16px;"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Limite Amarelo -->
+                    <div>
+                        <label class="block text-[10px] font-bold text-amber-500 uppercase tracking-widest mb-2">Mínimo Amarelo (%)</label>
+                        <div class="relative">
+                            <input type="number" id="config-yellow" class="w-full border border-amber-100 rounded-xl px-4 py-2.5 text-sm font-bold text-amber-700 focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none bg-amber-50 focus:bg-white transition-colors pl-9">
+                            <span class="absolute right-3 top-2.5 text-amber-600 text-xs font-bold">%</span>
+                            <div class="absolute left-3 top-2.5 text-amber-400">
+                                <i data-lucide="alert-circle" style="width: 16px; height: 16px;"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex gap-3 mt-8 pt-4 border-t border-slate-100">
+                <button onclick="closeSettingsModal()" class="flex-1 px-4 py-2.5 text-xs text-slate-500 font-bold hover:bg-slate-100 rounded-xl transition-colors">CANCELAR</button>
+                <button onclick="saveSettings()" class="flex-1 px-4 py-2.5 text-xs bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-700/30 hover:bg-blue-800 transition-all transform active:scale-95">SALVAR</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Delete -->
+    <div id="delete-modal" class="fixed inset-0 bg-slate-900/60 hidden items-center justify-center p-4 z-[60] backdrop-blur-sm">
+        <div class="bg-white rounded-2xl w-full max-w-[320px] p-6 shadow-2xl border border-slate-100">
+            <div class="flex flex-col items-center text-center">
+                <div class="p-3 bg-rose-50 text-rose-600 rounded-full mb-4 ring-4 ring-rose-50/50">
+                    <i data-lucide="trash-2" style="width: 24px; height: 24px;"></i>
+                </div>
+                <h3 class="text-base font-bold text-slate-800 mb-2">Excluir item?</h3>
+                <p id="delete-text" class="text-xs text-slate-500 mb-6 leading-relaxed"></p>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="closeDeleteModal()" class="flex-1 py-2.5 text-[10px] font-bold text-slate-400 hover:bg-slate-50 rounded-lg uppercase tracking-wider transition-colors">Voltar</button>
+                <button id="confirm-delete-btn" class="flex-1 py-2.5 text-[10px] font-bold bg-rose-600 text-white hover:bg-rose-700 rounded-lg uppercase tracking-wider shadow-lg shadow-rose-600/30 transition-all">Excluir</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let state = {
+            activeTab: 'gerais',
+            gerais: [],
+            especificos: [],
+            config: {
+                goalQuestions: 100,
+                thresholdGreen: 85,
+                thresholdYellow: 70
+            }
+        };
+
+        // Modal Controls
+        let currentModalType = 'materia';
+        let currentModalAction = 'create';
+        let currentParentId = null;
+        let currentItemId = null;
+
+        // Drag Controls
+        let dragSrcEl = null;
+
+        window.onload = () => {
+            const saved = localStorage.getItem('master_study_tracker_data');
+            if (saved) {
+                const loadedState = JSON.parse(saved);
+                
+                // Merge com defaults caso falte algo
+                state = {
+                    ...state,
+                    ...loadedState,
+                    config: {
+                        ...state.config,
+                        ...(loadedState.config || {})
+                    }
+                };
+                
+                if (!state.gerais) state.gerais = [];
+                if (!state.especificos) state.especificos = [];
+            }
+            render();
+        };
+
+        function save() {
+            localStorage.setItem('master_study_tracker_data', JSON.stringify(state));
+            render();
+        }
+
+        // --- EXPORT / IMPORT ---
+        function exportData() {
+            const dataStr = JSON.stringify(state, null, 2);
+            const blob = new Blob([dataStr], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            const date = new Date().toISOString().slice(0, 10);
+            link.download = `backup_detran_ma_${date}.json`;
+            link.href = url;
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if (imported.gerais || imported.especificos) {
+                        // Ensure config exists on imported data
+                        if (!imported.config) {
+                            imported.config = {
+                                goalQuestions: 100,
+                                thresholdGreen: 85,
+                                thresholdYellow: 70
+                            };
+                        }
+                        state = imported;
+                        save();
+                        event.target.value = '';
+                    } else {
+                        throw new Error("Formato inválido");
+                    }
+                } catch (err) {
+                    alert("Erro ao importar arquivo. Verifique o formato.");
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // --- CALCULATIONS & LOGIC ---
+
+        function calcAssuntoProgress(assunto) {
+            let score = 0;
+            // 3 pesos iguais para completar 100%
+            if (assunto.videoAula) score += 33.33;
+            if (assunto.pdfLido) score += 33.33;
+            // Usa a meta configurada
+            if (assunto.questoes >= state.config.goalQuestions) score += 33.34;
+            return Math.min(Math.round(score), 100);
+        }
+
+        function calcMateriaProgress(materia) {
+            if (!materia.assuntos || materia.assuntos.length === 0) return 0;
+            const total = materia.assuntos.reduce((acc, a) => acc + calcAssuntoProgress(a), 0);
+            return Math.round(total / materia.assuntos.length);
+        }
+
+        function calcGlobalProgress(tab) {
+            const materias = state[tab] || [];
+            if (materias.length === 0) return 0;
+            let totalAssuntos = 0;
+            let totalScore = 0;
+            materias.forEach(m => {
+                totalAssuntos += m.assuntos.length;
+                m.assuntos.forEach(a => totalScore += calcAssuntoProgress(a));
+            });
+            return totalAssuntos === 0 ? 0 : Math.round(totalScore / totalAssuntos);
+        }
+
+        function getPerformanceColor(val) {
+            if (val >= state.config.thresholdGreen) return 'bg-emerald-50 border-emerald-100 text-emerald-700';
+            if (val >= state.config.thresholdYellow) return 'bg-amber-50 border-amber-100 text-amber-700';
+            return 'bg-rose-50 border-rose-100 text-rose-700';
+        }
+
+        function getPerformanceTextClass(val) {
+            if (val >= state.config.thresholdGreen) return 'text-emerald-600';
+            if (val >= state.config.thresholdYellow) return 'text-amber-600';
+            return 'text-rose-600';
+        }
+
+        function switchTab(tab) {
+            state.activeTab = tab;
+            render();
+        }
+
+        // --- SETTINGS MODAL ---
+
+        function openSettingsModal() {
+            document.getElementById('config-goal').value = state.config.goalQuestions;
+            document.getElementById('config-green').value = state.config.thresholdGreen;
+            document.getElementById('config-yellow').value = state.config.thresholdYellow;
+            document.getElementById('settings-modal').classList.replace('hidden', 'flex');
+        }
+
+        function closeSettingsModal() {
+            document.getElementById('settings-modal').classList.replace('flex', 'hidden');
+        }
+
+        function saveSettings() {
+            const goal = parseInt(document.getElementById('config-goal').value) || 100;
+            const green = parseInt(document.getElementById('config-green').value) || 85;
+            const yellow = parseInt(document.getElementById('config-yellow').value) || 70;
+
+            state.config = {
+                goalQuestions: goal,
+                thresholdGreen: green,
+                thresholdYellow: yellow
+            };
+            
+            closeSettingsModal();
+            save(); // Salva e renderiza
+        }
+
+        // --- MODAL & ITEMS LOGIC ---
+
+        function openModal(type, parentId = null, action = 'create', currentName = '') {
+            currentModalType = type;
+            currentParentId = parentId;
+            currentModalAction = action;
+            
+            if (action === 'rename' && type === 'materia') {
+                 currentItemId = parentId; 
+                 currentParentId = null;
+            }
+
+            let title = '';
+            if (action === 'create') title = type === 'materia' ? 'Nova Matéria' : 'Novo Assunto';
+            else title = type === 'materia' ? 'Renomear Matéria' : 'Renomear Assunto';
+
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-input').value = currentName;
+            document.getElementById('modal-container').classList.replace('hidden', 'flex');
+            document.getElementById('modal-input').focus();
+        }
+
+        function openRenameModal(type, id, parentId, currentName) {
+            currentModalType = type;
+            currentItemId = id;
+            currentParentId = parentId;
+            currentModalAction = 'rename';
+            
+            document.getElementById('modal-title').innerText = type === 'materia' ? 'Renomear Matéria' : 'Renomear Assunto';
+            document.getElementById('modal-input').value = currentName;
+            document.getElementById('modal-container').classList.replace('hidden', 'flex');
+            document.getElementById('modal-input').focus();
+        }
+
+        function closeModal() {
+            document.getElementById('modal-container').classList.replace('flex', 'hidden');
+            document.getElementById('modal-input').value = '';
+            currentModalAction = 'create';
+            currentItemId = null;
+            currentParentId = null;
+        }
+
+        function handleModalConfirm() {
+            const val = document.getElementById('modal-input').value.trim();
+            if (!val) return;
+
+            if (currentModalAction === 'create') {
+                if (currentModalType === 'materia') {
+                    state[state.activeTab].push({
+                        id: crypto.randomUUID(),
+                        nome: val,
+                        assuntos: [],
+                        expanded: true
+                    });
+                } else {
+                    const materia = state[state.activeTab].find(m => m.id === currentParentId);
+                    if (materia) {
+                        materia.assuntos.push({
+                            id: crypto.randomUUID(),
+                            nome: val,
+                            videoAula: false,
+                            pdfLido: false,
+                            questoes: 0,
+                            porcentagemAcerto: 0,
+                            innerExpanded: false
+                        });
+                    }
+                }
+            } else {
+                if (currentModalType === 'materia') {
+                    const materia = state[state.activeTab].find(m => m.id === currentItemId);
+                    if (materia) materia.nome = val;
+                } else {
+                    const materia = state[state.activeTab].find(m => m.id === currentParentId);
+                    if (materia) {
+                        const assunto = materia.assuntos.find(a => a.id === currentItemId);
+                        if (assunto) assunto.nome = val;
+                    }
+                }
+            }
+            closeModal();
+            save();
+        }
+
+        function updateAssunto(mId, aId, field, value) {
+            const materia = state[state.activeTab].find(m => m.id === mId);
+            const assunto = materia.assuntos.find(a => a.id === aId);
+            assunto[field] = value;
+            save();
+        }
+
+        function toggleMateria(mId) {
+            const materia = state[state.activeTab].find(m => m.id === mId);
+            materia.expanded = !materia.expanded;
+            save();
+        }
+
+        function toggleAssuntoView(mId, aId) {
+            const materia = state[state.activeTab].find(m => m.id === mId);
+            const assunto = materia.assuntos.find(a => a.id === aId);
+            assunto.innerExpanded = !assunto.innerExpanded;
+            save();
+        }
+
+        function requestDelete(type, mId, aId = null, title = '') {
+            document.getElementById('delete-text').innerText = title;
+            document.getElementById('delete-modal').classList.replace('hidden', 'flex');
+            
+            document.getElementById('confirm-delete-btn').onclick = () => {
+                if (type === 'materia') {
+                    state[state.activeTab] = state[state.activeTab].filter(m => m.id !== mId);
+                } else {
+                    const materia = state[state.activeTab].find(m => m.id === mId);
+                    materia.assuntos = materia.assuntos.filter(a => a.id !== aId);
+                }
+                closeDeleteModal();
+                save();
+            };
+        }
+
+        function closeDeleteModal() {
+            document.getElementById('delete-modal').classList.replace('flex', 'hidden');
+        }
+
+        // --- DRAG AND DROP ---
+        function handleDragStart(e, materiaId) {
+            e.target.style.opacity = '0.4';
+            dragSrcEl = e.target;
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/html', e.target.innerHTML);
+            e.dataTransfer.setData('materiaId', materiaId);
+            e.target.classList.add('dragging');
+        }
+
+        function handleDragOver(e) {
+            if (e.preventDefault) e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            return false;
+        }
+
+        function handleDragEnter(e) {}
+        function handleDragLeave(e) {}
+
+        function handleDrop(e, targetMateriaId) {
+            if (e.stopPropagation) e.stopPropagation(); 
+            const draggedId = e.dataTransfer.getData('materiaId');
+            if (draggedId !== targetMateriaId) {
+                const list = state[state.activeTab];
+                const draggedIndex = list.findIndex(m => m.id === draggedId);
+                const targetIndex = list.findIndex(m => m.id === targetMateriaId);
+                if (draggedIndex > -1 && targetIndex > -1) {
+                    const [removed] = list.splice(draggedIndex, 1);
+                    list.splice(targetIndex, 0, removed);
+                    save();
+                }
+            }
+            return false;
+        }
+
+        function handleDragEnd(e) {
+            e.target.style.opacity = '1';
+            e.target.classList.remove('dragging');
+            document.querySelectorAll('#materias-container > div').forEach(item => item.classList.remove('over'));
+        }
+
+        function render() {
+            const pgGerais = calcGlobalProgress('gerais');
+            const pgEspec = calcGlobalProgress('especificos');
+            
+            document.getElementById('progress-gerais-text').innerText = pgGerais + '%';
+            document.getElementById('progress-gerais-bar').style.width = pgGerais + '%';
+            document.getElementById('progress-especificos-text').innerText = pgEspec + '%';
+            document.getElementById('progress-especificos-bar').style.width = pgEspec + '%';
+
+            const tGerais = document.getElementById('tab-gerais');
+            const tEspec = document.getElementById('tab-especificos');
+            const activeClass = "bg-white text-blue-700 shadow-sm ring-1 ring-slate-200";
+            const inactiveClass = "text-slate-500 hover:text-slate-800 hover:bg-slate-200/50";
+            
+            tGerais.className = `flex-1 py-2 px-3 rounded-lg text-[11px] font-bold transition-all uppercase tracking-tight ${state.activeTab === 'gerais' ? activeClass : inactiveClass}`;
+            tEspec.className = `flex-1 py-2 px-3 rounded-lg text-[11px] font-bold transition-all uppercase tracking-tight ${state.activeTab === 'especificos' ? activeClass : inactiveClass}`;
+
+            const container = document.getElementById('materias-container');
+            container.innerHTML = '';
+
+            const materiasAtuais = state[state.activeTab];
+
+            if (materiasAtuais.length === 0) {
+                container.innerHTML = `
+                    <div class="bg-white border border-slate-200 border-dashed rounded-2xl p-10 text-center">
+                        <i data-lucide="book-open" class="mx-auto text-slate-300 mb-3" style="width: 32px; height: 32px;"></i>
+                        <p class="text-slate-400 text-xs font-medium uppercase tracking-wider">Sem matérias registradas</p>
+                    </div>
+                `;
+            } else {
+                materiasAtuais.forEach(materia => {
+                    const prog = calcMateriaProgress(materia);
+                    const materiaEl = document.createElement('div');
+                    
+                    materiaEl.setAttribute('draggable', 'true');
+                    materiaEl.addEventListener('dragstart', (e) => handleDragStart(e, materia.id));
+                    materiaEl.addEventListener('dragenter', handleDragEnter);
+                    materiaEl.addEventListener('dragover', handleDragOver);
+                    materiaEl.addEventListener('dragleave', handleDragLeave);
+                    materiaEl.addEventListener('drop', (e) => handleDrop(e, materia.id));
+                    materiaEl.addEventListener('dragend', handleDragEnd);
+
+                    materiaEl.className = "bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden transition-all hover:border-blue-200 hover:shadow-md group/materia";
+                    
+                    let assuntosHtml = '';
+                    if (materia.expanded) {
+                        materia.assuntos.forEach(assunto => {
+                            const assProg = calcAssuntoProgress(assunto);
+                            const perfColor = getPerformanceColor(assunto.porcentagemAcerto);
+                            const perfTxt = getPerformanceTextClass(assunto.porcentagemAcerto);
+
+                            assuntosHtml += `
+                                <div class="px-5 py-2.5 border-b border-slate-50 last:border-0 transition-colors ${assunto.innerExpanded ? 'bg-blue-50/40' : 'hover:bg-slate-50/50'}">
+                                    <div class="flex items-center justify-between gap-4">
+                                        <div onclick="toggleAssuntoView('${materia.id}', '${assunto.id}')" class="flex items-center gap-3 min-w-0 flex-1 cursor-pointer group">
+                                            ${assProg === 100 
+                                                ? '<i data-lucide="check-circle" class="text-emerald-500 shrink-0" style="width: 16px; height: 16px;"></i>' 
+                                                : `<div class="w-4 h-4 rounded-full border-2 shrink-0 transition-colors ${assunto.innerExpanded ? 'border-blue-500 bg-white' : 'border-slate-200 group-hover:border-blue-300'}"></div>`
+                                            }
+                                            <div class="flex flex-col min-w-0">
+                                                <span class="text-xs truncate text-slate-700 font-semibold group-hover:text-blue-700 transition-colors">
+                                                    ${assunto.nome}
+                                                </span>
+                                                ${!assunto.innerExpanded ? `
+                                                    <div class="flex items-center gap-2.5 mt-0.5">
+                                                        <div class="flex gap-1">
+                                                            <i data-lucide="play-circle" class="${assunto.videoAula ? 'text-blue-600' : 'text-slate-200'}" style="width: 10px; height: 10px;"></i>
+                                                            <i data-lucide="file-text" class="${assunto.pdfLido ? 'text-blue-600' : 'text-slate-200'}" style="width: 10px; height: 10px;"></i>
+                                                        </div>
+                                                        <span class="text-[9px] font-bold text-slate-400 uppercase tracking-tight">${assunto.questoes} Q | <span class="${perfTxt}">${assunto.porcentagemAcerto}%</span></span>
+                                                    </div>
+                                                ` : ''}
+                                            </div>
+                                        </div>
+                                        <div class="flex items-center gap-3 shrink-0">
+                                            <div class="text-[11px] font-black text-right ${assProg === 100 ? 'text-emerald-500' : 'text-blue-700'}">${assProg}%</div>
+                                            <button onclick="toggleAssuntoView('${materia.id}', '${assunto.id}')" class="p-1 text-slate-300 hover:text-blue-600 transition-colors">
+                                                <i data-lucide="${assunto.innerExpanded ? 'chevron-up' : 'settings-2'}" style="width: 14px; height: 14px;"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    ${assunto.innerExpanded ? `
+                                        <div class="mt-3 pt-3 border-t border-blue-100/50 flex flex-wrap items-center gap-3 sm:gap-4 animate-in fade-in slide-in-from-top-1">
+                                            <div class="flex items-center gap-3 border-r border-slate-100 pr-3">
+                                                <label class="flex items-center gap-1.5 cursor-pointer group/label">
+                                                    <input type="checkbox" ${assunto.videoAula ? 'checked' : ''} onchange="updateAssunto('${materia.id}', '${assunto.id}', 'videoAula', this.checked)" class="w-3.5 h-3.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+                                                    <span class="text-[9px] font-bold text-slate-500 uppercase flex items-center gap-1 group-hover/label:text-blue-600 transition-colors">
+                                                        <i data-lucide="play-circle" style="width: 12px; height: 12px;"></i> VÍDEO
+                                                    </span>
+                                                </label>
+                                                <label class="flex items-center gap-1.5 cursor-pointer group/label">
+                                                    <input type="checkbox" ${assunto.pdfLido ? 'checked' : ''} onchange="updateAssunto('${materia.id}', '${assunto.id}', 'pdfLido', this.checked)" class="w-3.5 h-3.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+                                                    <span class="text-[9px] font-bold text-slate-500 uppercase flex items-center gap-1 group-hover/label:text-blue-600 transition-colors">
+                                                        <i data-lucide="file-text" style="width: 12px; height: 12px;"></i> PDF
+                                                    </span>
+                                                </label>
+                                            </div>
+                                            <div class="flex items-center gap-3">
+                                                <div class="flex items-center gap-1.5">
+                                                    <span class="text-[9px] font-bold text-slate-400 uppercase">Questões</span>
+                                                    <input type="number" value="${assunto.questoes}" onchange="updateAssunto('${materia.id}', '${assunto.id}', 'questoes', parseInt(this.value)||0)" class="w-10 text-[10px] text-center outline-none font-bold text-slate-600 bg-white border border-slate-200 rounded py-0.5 focus:border-blue-400 transition-colors">
+                                                </div>
+                                                <div class="flex items-center gap-1 rounded border px-1.5 py-0.5 ${perfColor}">
+                                                    <i data-lucide="target" style="width: 10px; height: 10px;"></i>
+                                                    <input type="number" value="${assunto.porcentagemAcerto}" onchange="updateAssunto('${materia.id}', '${assunto.id}', 'porcentagemAcerto', Math.min(100, parseInt(this.value)||0))" class="w-7 text-[10px] text-center outline-none font-black bg-transparent">
+                                                    <span class="text-[9px] font-black">%</span>
+                                                </div>
+                                            </div>
+                                            <div class="flex items-center gap-2 ml-auto">
+                                                <button onclick="openRenameModal('assunto', '${assunto.id}', '${materia.id}', '${assunto.nome}')" class="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-slate-100 rounded transition-colors" title="Renomear">
+                                                    <i data-lucide="pencil" style="width: 14px; height: 14px;"></i>
+                                                </button>
+                                                <button onclick="requestDelete('assunto', '${materia.id}', '${assunto.id}', '${assunto.nome}')" class="p-1.5 text-rose-300 hover:text-rose-500 hover:bg-rose-50 rounded transition-colors" title="Excluir">
+                                                    <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            `;
+                        });
+                    }
+
+                    materiaEl.innerHTML = `
+                        <div class="px-5 py-3.5 flex items-center gap-3 bg-white">
+                            <div class="drag-handle cursor-grab text-slate-300 hover:text-blue-500 -ml-2 p-2 transition-colors">
+                                <i data-lucide="grip-vertical" style="width: 16px; height: 16px;"></i>
+                            </div>
+
+                            <button onclick="toggleMateria('${materia.id}')" class="text-slate-300 hover:text-blue-600 transition-colors">
+                                <i data-lucide="${materia.expanded ? 'chevron-down' : 'chevron-right'}" style="width: 18px; height: 18px;"></i>
+                            </button>
+                            <div class="flex-1 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6 min-w-0">
+                                <h3 class="font-bold text-slate-800 text-sm truncate max-w-[200px] group-hover/materia:text-blue-900 transition-colors">${materia.nome}</h3>
+                                <div class="flex-1 flex items-center gap-2.5">
+                                    <div class="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                        <div class="h-full ${prog === 100 ? 'bg-emerald-500' : 'bg-blue-600'}" style="width: ${prog}%"></div>
+                                    </div>
+                                    <span class="text-[10px] font-bold text-slate-500 w-8 text-right">${prog}%</span>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-1.5 ml-2">
+                                <button onclick="openRenameModal('materia', '${materia.id}', null, '${materia.nome}')" class="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-slate-50 rounded-lg transition-all" title="Renomear">
+                                    <i data-lucide="pencil" style="width: 14px; height: 14px;"></i>
+                                </button>
+                                <button onclick="openModal('assunto', '${materia.id}')" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-all" title="Adicionar Assunto">
+                                    <i data-lucide="plus" style="width: 16px; height: 16px;"></i>
+                                </button>
+                                <button onclick="requestDelete('materia', '${materia.id}', null, '${materia.nome}')" class="p-1.5 text-rose-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all" title="Excluir">
+                                    <i data-lucide="trash-2" style="width: 16px; height: 16px;"></i>
+                                </button>
+                            </div>
+                        </div>
+                        ${materia.expanded ? `<div class="bg-white border-t border-slate-50">${assuntosHtml}</div>` : ''}
+                    `;
+                    container.appendChild(materiaEl);
+                });
+            }
+            
+            lucide.createIcons();
+        }
+    </script>
+</body>
+</html>
